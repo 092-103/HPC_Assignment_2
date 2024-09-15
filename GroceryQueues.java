@@ -1,38 +1,38 @@
+import java.util.Random;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
-import java.util.Random;
 
 public class GroceryQueues {
     private final GroceryQueue[] queues;
     private final int numQueues;
     private final ExecutorService cashierService;
     private final Random random;
+    private final QueueSimulator simulator;
 
-    public GroceryQueues(int numQueues, int maxQueueLength) {
+    public GroceryQueues(int numQueues, int maxQueueLength, QueueSimulator simulator) {
         this.numQueues = numQueues;
         this.queues = new GroceryQueue[numQueues];
         this.cashierService = Executors.newFixedThreadPool(numQueues);
         this.random = new Random();
+        this.simulator = simulator;
 
-        // Initialize each queue
         for (int i = 0; i < numQueues; i++) {
             queues[i] = new GroceryQueue(maxQueueLength);
         }
     }
 
     public void startServing() {
-        // Each cashier serves customers concurrently in separate threads
         for (int i = 0; i < numQueues; i++) {
             final int cashierIndex = i;
             cashierService.submit(() -> {
-                while (true) {
+                while (!Thread.currentThread().isInterrupted()) {
                     Customer customer = queues[cashierIndex].serveCustomer();
                     if (customer != null) {
                         try {
-                            // Simulate service time
                             Thread.sleep(customer.getServiceTime() * 1000);
                             customer.setDepartureTime(System.currentTimeMillis());
                             customer.setWasServed(true);
+                            simulator.customerServed();
                         } catch (InterruptedException e) {
                             Thread.currentThread().interrupt();
                         }
@@ -43,7 +43,6 @@ public class GroceryQueues {
     }
 
     public boolean addCustomer(Customer customer) {
-        // Find the queue with the fewest people waiting
         synchronized (this) {
             GroceryQueue shortestQueue = queues[0];
             for (GroceryQueue queue : queues) {
@@ -54,12 +53,15 @@ public class GroceryQueues {
                 }
             }
 
-            // Try to add customer to the chosen queue
-            return shortestQueue.addCustomer(customer);
+            if (!shortestQueue.addCustomer(customer)) {
+                simulator.customerLeft();
+                return false;
+            }
+            return true;
         }
     }
 
     public void shutdown() {
-        cashierService.shutdown();
+        cashierService.shutdownNow();
     }
 }

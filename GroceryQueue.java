@@ -11,21 +11,15 @@ public class GroceryQueue {
     }
 
     public synchronized boolean addCustomer(Customer customer) {
-        // Add customer if queue is not full
         if (queue.size() >= maxQueueLength) {
-            return false; // Customer leaves if no space
+            return false;
         }
         queue.offer(customer);
         return true;
     }
 
     public synchronized Customer serveCustomer() {
-        // Serve the first customer in line (FIFO)
         return queue.poll();
-    }
-
-    public synchronized boolean isFull() {
-        return queue.size() >= maxQueueLength;
     }
 
     public synchronized int size() {
